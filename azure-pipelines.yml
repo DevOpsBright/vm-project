@@ -1,0 +1,63 @@
+parameters:
+  - name: resource_group_name
+    type: string
+    default: "default_resource_group"
+  - name: location
+    type: string
+    default: "default_location"
+  - name: vnetname
+    type: string
+    default: "default_vnet"
+  - name: hostname
+    type: string
+    default: "default_hostname"
+
+trigger:
+  none
+
+name: deployment-pipeline
+
+stages:
+  - stage: Deploy
+    jobs:
+      - deployment: DeployTerraform
+        displayName: 'Deployment Stage'
+        continueOnError: false
+        environment: Azure_Dev_Test
+        pool:
+          vmImage: 'ubuntu-latest'
+        strategy:
+          runOnce:
+            deploy:
+              steps:
+                - checkout: self
+
+                - task: TerraformTaskV4@4
+                  displayName: 'Terraform Init'
+                  inputs:
+                    provider: 'azurerm'
+                    command: 'init'
+                    workingDirectory: '$(System.DefaultWorkingDirectory)/vm-project'
+                    backendServiceArm: ${{ variables.backendServiceConnection }}
+                    backendAzureRmResourceGroupName: 'N/A'
+                    backendAzureRmStorageAccountName: 'N/A'
+                    backendAzureRmContainerName: 'N/A'
+                    backendAzureRmKey: 'N/A'
+
+                - task: TerraformTaskV4@4
+                  displayName: 'Terraform Plan'
+                  inputs:
+                    command: 'plan'
+                    workingDirectory: '$(System.DefaultWorkingDirectory)/vm-project'
+                    environmentServiceNameAzureRm: ${{ variables.backendServiceConnection }}
+                    commandOptions: |
+                      -var "resource_group_name=${{ parameters.resource_group_name }}"
+                      -var "location=${{ parameters.location }}"
+                      -var "vnetname=${{ parameters.vnetname }}"
+                      -var "hostname=${{ parameters.hostname }}"
+
+                - task: TerraformTaskV4@4
+                  displayName: 'Terraform Apply'
+                  inputs:
+                    command: 'apply'
+                    workingDirectory: '$(System.DefaultWorkingDirectory)/vm-project'
